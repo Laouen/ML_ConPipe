@@ -11,7 +11,7 @@ def get_function(funct_name):
     )
 
 
-class DataSplit():
+class CustomFunction():
 
     def __init__(self, config, verbose):
         self.config = config
