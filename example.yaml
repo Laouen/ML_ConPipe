@@ -1,31 +1,27 @@
 general:
   modules_directories: ['/path/code']
   verbose: 1
-data:
+input:
   data_directory: '/path/data'
 data_preprocess:
   functions: ['preprocess_data']
   functions_parameters:
 feature_extraction:
-  functions: ['extract_features']
-  functions_parameters:
-    extract_feature:
-      param1: 1
-      param2: 2
-  columns_to_include: []
-  columns_to_drop: []
-  target_col: ''
-  group_col: '' # solo se usa si model_selection.evaluation_schema es GroupKFold
-data_augmentation:
-  functions: []
-evaluation_schema:
-  schema: 'train_test'
+  input_from: ['data_preprocess']
+  function: 'extract_features'
+  parameters:
+    columns_to_include: []
+    columns_to_drop: []
+    target_col: ''
+data_split:
+  input_from: ['feature_extraction']
   function: 'train_test_split'
   parameters:
     test_size: None
     random_state: 42
     shuffle: On
 model_selection:
+  input_from: ['data_split']
   models: ['LogisticRegression', 'RandomForestClassifier']
   param_grid:
     LogisticRegression:
@@ -51,5 +47,10 @@ model_selection:
     shuffle: On
     random_state: 42
 model_evaluation:
+  input_from: ['model_selection']
   scores: ['accuracy', 'recall', 'auc']
   charts: ['roc']
+  output_path: '/path/output'
+  class_labels: 
+    0: 'Negative'
+    1: 'Positive'
