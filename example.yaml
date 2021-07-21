@@ -4,8 +4,9 @@ general:
 input:
   data_directory: '/path/data'
 data_preprocess:
-  functions: ['preprocess_data']
-  functions_parameters:
+  input_from: ['input']
+  function: 'preprocess_data'
+  parameters:
 feature_extraction:
   input_from: ['data_preprocess']
   function: 'extract_features'
@@ -22,35 +23,39 @@ data_split:
     shuffle: On
 model_selection:
   input_from: ['data_split']
-  models: ['LogisticRegression', 'RandomForestClassifier']
-  param_grid:
-    LogisticRegression:
-      penalty: ['l1', 'l2']
-      C: [0, 0.2, 0.4, 0.6, 0.8, 1.0]
-      solver: ['lbfgs', 'saga', 'liblinear']
-    RandomForestClassifier:
-      n_estimators: [10, 100, 1000]
-      criterion: ['gini', 'entropy']
-      max_depth: [2,6,10]
-  fit_params:
-    LogisticRegression:
-      sample_weight: None
-    RandomForestClassifier:
-      sample_weight: None
-  parameter_optimizer: 'GridSearchCV'
-  parameter_optimizer_params: 
-    refit: On
-  scoring: 'accuracy' # esto tiene que poder ser una funcion custom desde el módulo también
-  cv: 'StratifiedKFold'
-  cv_parameters:
-    n_splits: 5
-    shuffle: On
-    random_state: 42
+  function: 'ModelSelection'
+  parameters:
+    models: ['LogisticRegression', 'RandomForestClassifier']
+    param_grid:
+      LogisticRegression:
+        penalty: ['l1', 'l2']
+        C: [0, 0.2, 0.4, 0.6, 0.8, 1.0]
+        solver: ['lbfgs', 'saga', 'liblinear']
+      RandomForestClassifier:
+        n_estimators: [10, 100, 1000]
+        criterion: ['gini', 'entropy']
+        max_depth: [2,6,10]
+    fit_params:
+      LogisticRegression:
+        sample_weight: None
+      RandomForestClassifier:
+        sample_weight: None
+    parameter_optimizer: 'GridSearchCV'
+    parameter_optimizer_params: 
+      refit: On
+    scoring: 'accuracy' # esto tiene que poder ser una funcion custom desde el módulo también
+    cv: 'StratifiedKFold'
+    cv_parameters:
+      n_splits: 5
+      shuffle: On
+      random_state: 42
 model_evaluation:
   input_from: ['model_selection']
-  scores: ['accuracy', 'recall', 'auc']
-  charts: ['roc']
-  output_path: '/path/output'
-  class_labels: 
-    0: 'Negative'
-    1: 'Positive'
+  function: 'ModelEvaluation'
+  parameters:
+    scores: ['accuracy', 'recall', 'auc']
+    charts: ['roc']
+    output_path: '/path/output'
+    class_labels: 
+      0: 'Negative'
+      1: 'Positive'
