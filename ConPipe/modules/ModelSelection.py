@@ -1,59 +1,47 @@
-from sklearn import ensemble, linear_model, svm
-from sklearn import model_selection # import GridSearchCV, StratifiedKFold, GroupKFold
 import pandas as pd
 
 from ConPipe.exceptions import NotExistentMethodError
-from ConPipe.utils import find_function_from_modules
-
-# TODO: agregar los modulos que pase el usuario
-model_modules = [ensemble, linear_model, svm]
-cv_modules = [model_selection]
-parameter_optimizer_modules = [model_selection]
-
-def get_model(model_name):
-    return find_function_from_modules(
-        model_modules,
-        model_name
-    )
-
-def get_cv(cv_name):
-    return find_function_from_modules(
-        cv_modules,
-        cv_name
-    )
-
-def get_parameter_optimizer(param_opt_name):
-    return find_function_from_modules(
-        parameter_optimizer_modules,
-        param_opt_name
-    )
+from ConPipe.Logger import Logger
+from ConPipe.ModuleLoader import ModuleLoader
 
 class ModelSelection():
 
-    def __init__(self, config, verbose=1d):
+    def __init__(self, parameter_optimizer, parameter_optimizer_params, scoring, cv, cv_parameters, models):
 
-        self.verbose = verbose
-        self.config = config
+        self.logger = Logger()
+        self.loader = ModuleLoader()
+
+        self.fit_params = {
+            model_name: model_params['fit_params']
+            for model_name, model_params in models.items()
+        }
+
+        self.param_grids = {
+            model_name: model_params['param_grid']
+            for model_name, model_params in models.items()
+        }
         
         # TODO: Implementar modelos encadenados con sklearn Pipe de forma de permitir cosas como hacer
         # feature selecton dentro del hiper parameter optimization schema
         self.models = {
-            model_name: get_model(model_name)(**self.config['param_grid'][model_name])
-            for model_name in self.config['models']
+            model_name: self.loader.get_class(
+                module=model_params['module'],
+                class_name=model_params['class_name']
+            )(**model_params['param_grid'])
+            for model_name, model_params in models.items()
         }
         
-        cv = get_cv(self.config['cv'])
-        search_module = get_parameter_optimizer(self.config['parameter_optimizer'])
+        cv = self.loader.get_class(**cv)
+        search_module = self.loader.get_class(**parameter_optimizer)
         self.parameter_optimizers_ = {
             model_name: search_module(
-                estimator=self.models[model_name],
-                param_grid=self.config['param_grid'][model_name],
-                scoring=self.config['scoring'],
-                cv=cv(**self.config['cv_parameters']),
-                refit=self.config['refit'],
-                verbose=self.verbose,
-                **self.config['parameter_optimizer_params']
-            ) for model_name in self.config['models']
+                estimator=model,
+                param_grid=self.param_grids[model_name],
+                scoring=scoring,
+                cv=cv(**cv_parameters),
+                verbose=self.logger.verbose,
+                **parameter_optimizer_params
+            ) for model_name, model in self.models.items()
         }
 
         # Set after fit
@@ -63,18 +51,16 @@ class ModelSelection():
         self.best_score_ = None
         self.best_params_ = None
     
-    def fit(self, X, y=None, groups=None):
-        if self.verbose > 1:
-            print(f'Select best model and parameters')
+    def run(self, X, y=None, groups=None):
+        self.logger(1, f'Select best model and parameters')
 
-        for optimizer in self.parameter_optimizers_: 
+        for model_name, optimizer in self.parameter_optimizers_.items(): 
             optimizer.fit(
                 X, y=y, groups=groups,
-                **self.config['fit_params'][model_name]
+                **self.fit_params[model_name]
             )
-        ]
 
-        if hasattr(self.parameter_optimizers[0], 'cv_results_'):
+        if hasattr(self.parameter_optimizers_.values()[0], 'cv_results_'):
             self.cv_results_ = pd.concat([
                 pd.DataFrame(optimizer.cv_results_).assign(model_name=model_name)
                 for model_name,optimizer in self.parameter_optimizers_.items()
@@ -97,7 +83,12 @@ class ModelSelection():
         self.best_score_ = self.best_optimizer_.best_score_
         self.best_params_ = self.best_optimizer_.best_params_
 
-    def __check_if_has_method(self, method_name):
+        return {
+            'estimator': self.best_estimator_,
+            'cv_results_': self.cv_results_
+        }
+
+    def _check_if_has_method(self, method_name):
         if not hasattr(self.best_optimizer_, method_name):
             NotExistentMethodError(f'The passed optimizer has no method {method_name}')
     
@@ -109,31 +100,31 @@ class ModelSelection():
         self._check_if_has_method("inverse_transform")
         return self.best_optimizer_.inverse_transform(Xt)
 
-    def predict(X):
+    def predict(self, Xt):
         self._check_if_has_method("predict")
         return self.best_optimizer_.predict(Xt)
 
-    def predict_log_proba(X):
+    def predict_log_proba(self, X):
         self._check_if_has_method("predict_log_proba")
         return self.best_optimizer_.predict_log_proba(X)
 
-    def predict_proba(X):
+    def predict_proba(self, X):
         self._check_if_has_method("predict_proba(")
         return self.best_optimizer_.predict_proba(X)
 
-    def score(X, y=None):
+    def score(self, X, y=None):
         self._check_if_has_method("score")
         return self.best_optimizer_.score(X, y=y)
 
-    def score_samples(X):
+    def score_samples(self, X):
         self._check_if_has_method("score_samples")
         return self.best_optimizer_.score_samples(X)
 
-    def transform(X):
+    def transform(self, X):
         self._check_if_has_method("transform")
         return self.best_optimizer_.transform(X)
 
-    def set_params(**params):
+    def set_params(self, **params):
         self._check_if_has_method("set_params")
         self.best_optimizer_.set_params(**params)
         return self

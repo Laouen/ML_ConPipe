@@ -1,61 +1,111 @@
 general:
-  modules_directories: ['/path/code']
+  module_directories: ['../test_data']
+  installed_modules: []
   verbose: 1
-input:
-  data_directory: '/path/data'
+
 data_preprocess:
-  input_from: ['input']
-  function: 'preprocess_data'
+  output_storage_type: csv # csv, json, pickle o dict {param_name: output_storage_type}
+  function: 
+    module: entelai_predoc
+    function_name: preprocess_data
   parameters:
+    data_directory: /git/doctorado/PhD_entelai/data
+
 feature_extraction:
   input_from: ['data_preprocess']
-  function: 'extract_features'
+  output_storage_type: csv
+  function: 
+    module: entelai_predoc
+    function_name: feature_extraction
   parameters:
     columns_to_include: []
     columns_to_drop: []
     target_col: ''
+
 data_split:
   input_from: ['feature_extraction']
-  function: 'train_test_split'
+  output_storage_type: 'csv'
+  class: 
+    module: 'ConPipe.DataSplit',
+    class_name: 'DataSplit'
   parameters:
-    test_size: None
-    random_state: 42
-    shuffle: On
+    function: 
+      module: 'sklearn'
+      function_name: 'model_selection.train_test_split'
+    parameters:
+      test_size: None
+      random_state: 42
+      shuffle: On
+
 model_selection:
   input_from: ['data_split']
-  function: 'ModelSelection'
+  output_storage_type: {'estimator': 'pickle', 'metrics_results': 'csv'}
+  function: ModelSelection
   parameters:
-    models: ['LogisticRegression', 'RandomForestClassifier']
-    param_grid:
-      LogisticRegression:
-        penalty: ['l1', 'l2']
-        C: [0, 0.2, 0.4, 0.6, 0.8, 1.0]
-        solver: ['lbfgs', 'saga', 'liblinear']
-      RandomForestClassifier:
-        n_estimators: [10, 100, 1000]
-        criterion: ['gini', 'entropy']
-        max_depth: [2,6,10]
-    fit_params:
-      LogisticRegression:
-        sample_weight: None
-      RandomForestClassifier:
-        sample_weight: None
-    parameter_optimizer: 'GridSearchCV'
+    parameter_optimizer: 
+      module: sklearn
+      class_name: model_selection.GridSearchCV
     parameter_optimizer_params: 
       refit: On
-    scoring: 'accuracy' # esto tiene que poder ser una funcion custom desde el módulo también
-    cv: 'StratifiedKFold'
+    scoring: accuracy # esto tiene que poder ser una funcion custom desde el módulo también
+    cv: 
+      module: 'sklearn'
+      class_name: 'model_selection.StratifiedKFold'
     cv_parameters:
       n_splits: 5
       shuffle: On
       random_state: 42
+    models: 
+      LogisticRegression:
+        module: sklearn
+        class_name: linear_model.LogisticRegression
+        param_grid:
+          penalty: ['l1', 'l2']
+          C: [0, 0.2, 0.4, 0.6, 0.8, 1.0]
+          solver: ['lbfgs', 'saga', 'liblinear']
+        fit_params:
+          sample_weight: None
+      RandomForestClassifier:
+        module: sklearn
+        class_name: ensemble.RandomForestClassifier
+        param_grid:
+          n_estimators: [10, 100, 1000]
+          criterion: ['gini', 'entropy']
+          max_depth: [2,6,10]
+        fit_params:
+          sample_weight: None
+
 model_evaluation:
-  input_from: ['model_selection']
-  function: 'ModelEvaluation'
+  input_from: ['data_split','model_selection']
+  function: ModelEvaluation
   parameters:
-    scores: ['accuracy', 'recall', 'auc']
-    charts: ['roc']
-    output_path: '/path/output'
+    fit_model: Off
+    tag: test
+    output_path: /path/output
     class_labels: 
-      0: 'Negative'
-      1: 'Positive'
+      0: Negative
+      1: Positive
+    scores: 
+      accuracy:
+        module: sklearn
+        function_name: metrics.accuracy_score
+        score_type: pred
+      recall:
+        module: sklearn
+        function_name: metrics.recall_score
+        score_type: pred
+      auc:
+        module: sklearn
+        function_name: metrics.roc_auc_score
+        score_type: proba
+    charts:
+      roc:
+        module: ConPipe
+        functin_name: visualizations.roc_chart
+      confusion_matrix: 
+        module: ConPipe
+        function_name: visualizations.vonfusion_matrix_chart
+        parameters:
+          annot: On
+          cmap: flare
+          fmt: g

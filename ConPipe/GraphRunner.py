@@ -1,9 +1,10 @@
-import graph
+from os import scandir
 import yaml
 from graph import Graph
 
-from ConPipe import modules
-from ConPipe.utils import find_function_from_modules
+from ConPipe.FunctionModule import FunctionModule
+from ConPipe.ModuleLoader import ModuleLoader
+from ConPipe.Logger import Logger
 
 # Function to load yaml configuration file
 def load_config(config_path):
@@ -12,61 +13,73 @@ def load_config(config_path):
 
     return config
 
-# TODO: agregar los modulos del usuario
-graph_modules = [modules]
-
-def get_node_module(funct_name):
-    return find_function_from_modules(
-        graph_modules,
-        funct_name
-    )
-
-
 class GraphRunner():
 
-    def __init__(self, config):
-        self.config = config
-        self.verbose = self.config['general']['verbose']
-        
-        self._load_graph_nodes()
+    def __init__(self, config_path):
+        self.config = load_config(config_path)
+        self.logger = Logger(self.config['general']['verbose'])
+        self.loader = ModuleLoader(
+            self.config['general']['module_directories'],
+            self.config['general']['installed_modules']
+        )
+        self._load_graph()
 
-    def _load_graph_nodes(self):
+    def _load_graph(self):
 
         # Create all DAG nodes
         self.graph_ = Graph()
 
         for name, config in self.config.items():
-            if name != 'general':
-                self.graph_.add_node(
-                    name, 
-                    {
-                        **config,
-                        'module': get_node_module(config['function'])(
-                            config['parameters'],
-                            self.verbose
-                        )
-                    }
+            if name == 'general':
+                continue
+
+            # Obtain the module to run
+            if 'class' in config:
+                module = self.loader.get_class(**config['class'])(
+                    **config['parameters']
                 )
 
-        # Build DAG graph
-        self.root_nodes_ = []
-        for curr_node in self.graph_.nodes():
-            input_from = self.graph_.node(curr_node)['input_from']
-        
-            if len(input_from) == 0:
-                self.root_nodes_.append(curr_node)
+            elif 'function' in config:
+                module = FunctionModule(
+                    function=self.loader.get_function(**config['function']),
+                    parameters=config['parameters']
+                )
 
-            for node in input_from:
-                self.graph_.add_edge(curr_node, node)
-        
+            else:
+                raise AttributeError('Either a class or a function module must be specified')
+
+            self.graph_.add_node(
+                name, 
+                {**config, 'module': module}
+            )
+
+        # Build DAG graph
+        for curr_node_name in self.graph_.nodes():
+
+            curr_node = self.graph_.node(curr_node_name)
+
+            if 'input_from' not in curr_node or len(curr_node['input_from']) == 0:
+                continue
+
+            for node in curr_node['input_from']:
+                self.graph_.add_edge(curr_node_name, node)
+
+
     def run(self):
 
         # TODO: load output from disk
+        # TODO: make a system to restart training from last place
 
-        for curr_node in self.graph_.topological_sort():
+        for curr_node_name in self.graph_.topological_sort():
 
-            if self.verbose > 1:
-                print(f'executing node {curr_node}')
+            curr_node = self.graph_.node(curr_node_name)
+            
+            # If node is already calculated, then skip recalculation
+            if curr_node['output'] is not None:
+                self.logger(1, f'Skipping already executed node: {curr_node}')
+                continue
+
+            self.logger(1, f'executing node: {curr_node}')
             
             # Collect inputs from dependent nodes
             inputs = {} 
