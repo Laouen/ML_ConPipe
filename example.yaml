@@ -26,8 +26,8 @@ data_split:
   input_from: ['feature_extraction']
   output_storage_type: 'csv'
   class: 
-    module: 'ConPipe.DataSplit',
-    class_name: 'DataSplit'
+    module: 'ConPipe',
+    class_name: 'DataSplit.DataSplit'
   parameters:
     function: 
       module: 'sklearn'

@@ -5,6 +5,7 @@ from graph import Graph
 from ConPipe.FunctionModule import FunctionModule
 from ConPipe.ModuleLoader import ModuleLoader
 from ConPipe.Logger import Logger
+from ConPipe.DefaultModules import DEFAULT_MODULES
 
 # Function to load yaml configuration file
 def load_config(config_path):
@@ -12,6 +13,8 @@ def load_config(config_path):
         config = yaml.safe_load(file)
 
     return config
+
+
 
 class GraphRunner():
 

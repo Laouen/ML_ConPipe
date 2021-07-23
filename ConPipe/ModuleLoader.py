@@ -4,19 +4,19 @@ import importlib
 import inspect
 
 from ConPipe.decorators import singleton
-from ConPipe.modules import DataSplit, ModelEvaluation, ModelSelection
 from ConPipe.exceptions import ModuleNotFoundError, NotFunctionModuleError, NotClassModuleError
 
+import ConPipe
 import sklearn
 
+
+# Cambiar la estrategia a que primero carga el modulo separando por puntos y luego carga el atributo del ultimo modulo
 @singleton
 class ModuleLoader():
 
-    def __init__(self, module_directories=[], installed_modules=[]):
+    def __init__(self, default_modules, module_directories=[], installed_modules=[]):
         self.modules = {
-            'ConPipe.DataSplit': DataSplit,
-            'ConPipe.ModelEvaluation': ModelEvaluation,
-            'ConPipe.ModelSelection': ModelSelection,
+            'ConPipe': ConPipe,
             'sklearn': sklearn
         }
 
