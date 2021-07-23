@@ -2,14 +2,13 @@ import pandas as pd
 
 from ConPipe.exceptions import NotExistentMethodError
 from ConPipe.Logger import Logger
-from ConPipe.ModuleLoader import ModuleLoader
+from ConPipe.module_loaders import get_class
 
 class ModelSelection():
 
     def __init__(self, parameter_optimizer, parameter_optimizer_params, scoring, cv, cv_parameters, models):
 
         self.logger = Logger()
-        self.loader = ModuleLoader()
 
         self.fit_params = {
             model_name: model_params['fit_params']
@@ -24,23 +23,20 @@ class ModelSelection():
         # TODO: Implementar modelos encadenados con sklearn Pipe de forma de permitir cosas como hacer
         # feature selecton dentro del hiper parameter optimization schema
         self.models = {
-            model_name: self.loader.get_class(
-                module=model_params['module'],
-                class_name=model_params['class_name']
-            )(**model_params['param_grid'])
+            model_name: get_class(model_params['class'])(**model_params['constructor_params'])
             for model_name, model_params in models.items()
         }
         
-        cv = self.loader.get_class(**cv)
-        search_module = self.loader.get_class(**parameter_optimizer)
+        cv = get_class(cv['class'])
+        search_module = get_class(parameter_optimizer['class'])
         self.parameter_optimizers_ = {
             model_name: search_module(
                 estimator=model,
                 param_grid=self.param_grids[model_name],
-                scoring=scoring,
-                cv=cv(**cv_parameters),
+                scoring=parameter_optimizer['scoring'],
+                cv=cv(**cv['parameters']),
                 verbose=self.logger.verbose,
-                **parameter_optimizer_params
+                **parameter_optimizer['parameters']
             ) for model_name, model in self.models.items()
         }
 
@@ -87,44 +83,3 @@ class ModelSelection():
             'estimator': self.best_estimator_,
             'cv_results_': self.cv_results_
         }
-
-    def _check_if_has_method(self, method_name):
-        if not hasattr(self.best_optimizer_, method_name):
-            NotExistentMethodError(f'The passed optimizer has no method {method_name}')
-    
-    def decision_function(self, X):
-        self._check_if_has_method('decision_function')
-        return self.best_optimizer_.decision_function(X)
-
-    def inverse_transform(self, Xt):
-        self._check_if_has_method("inverse_transform")
-        return self.best_optimizer_.inverse_transform(Xt)
-
-    def predict(self, Xt):
-        self._check_if_has_method("predict")
-        return self.best_optimizer_.predict(Xt)
-
-    def predict_log_proba(self, X):
-        self._check_if_has_method("predict_log_proba")
-        return self.best_optimizer_.predict_log_proba(X)
-
-    def predict_proba(self, X):
-        self._check_if_has_method("predict_proba(")
-        return self.best_optimizer_.predict_proba(X)
-
-    def score(self, X, y=None):
-        self._check_if_has_method("score")
-        return self.best_optimizer_.score(X, y=y)
-
-    def score_samples(self, X):
-        self._check_if_has_method("score_samples")
-        return self.best_optimizer_.score_samples(X)
-
-    def transform(self, X):
-        self._check_if_has_method("transform")
-        return self.best_optimizer_.transform(X)
-
-    def set_params(self, **params):
-        self._check_if_has_method("set_params")
-        self.best_optimizer_.set_params(**params)
-        return self

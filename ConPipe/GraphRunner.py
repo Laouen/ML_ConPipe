@@ -3,7 +3,7 @@ import yaml
 from graph import Graph
 
 from ConPipe.FunctionModule import FunctionModule
-from ConPipe.ModuleLoader import ModuleLoader
+from ConPipe.module_loaders import add_path_to_modules, get_class, get_function
 from ConPipe.Logger import Logger
 from ConPipe.DefaultModules import DEFAULT_MODULES
 
@@ -19,12 +19,10 @@ def load_config(config_path):
 class GraphRunner():
 
     def __init__(self, config_path):
+        add_path_to_modules(self.config['general']['module_paths'])
+        
         self.config = load_config(config_path)
         self.logger = Logger(self.config['general']['verbose'])
-        self.loader = ModuleLoader(
-            self.config['general']['module_directories'],
-            self.config['general']['installed_modules']
-        )
         self._load_graph()
 
     def _load_graph(self):
@@ -38,13 +36,13 @@ class GraphRunner():
 
             # Obtain the module to run
             if 'class' in config:
-                module = self.loader.get_class(**config['class'])(
+                module = get_class(config['class'])(
                     **config['parameters']
                 )
 
             elif 'function' in config:
                 module = FunctionModule(
-                    function=self.loader.get_function(**config['function']),
+                    function=get_function(config['function']),
                     parameters=config['parameters']
                 )
 

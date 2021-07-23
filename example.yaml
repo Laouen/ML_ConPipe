@@ -1,22 +1,17 @@
 general:
-  module_directories: ['../test_data']
-  installed_modules: []
+  module_paths: ['../test_data']
   verbose: 1
 
 data_preprocess:
   output_storage_type: csv # csv, json, pickle o dict {param_name: output_storage_type}
-  function: 
-    module: entelai_predoc
-    function_name: preprocess_data
+  function: PhD_entelai_predoc.preprocess_data.preprocess_data
   parameters:
     data_directory: /git/doctorado/PhD_entelai/data
 
 feature_extraction:
   input_from: ['data_preprocess']
   output_storage_type: csv
-  function: 
-    module: entelai_predoc
-    function_name: feature_extraction
+  function: PhD_entelai_predoc.feature_extraction.feature_extraction
   parameters:
     columns_to_include: []
     columns_to_drop: []
@@ -24,14 +19,10 @@ feature_extraction:
 
 data_split:
   input_from: ['feature_extraction']
-  output_storage_type: 'csv'
-  class: 
-    module: 'ConPipe',
-    class_name: 'DataSplit.DataSplit'
+  output_storage_type: csv
+  class: ConPipe.DataSplit.DataSplit
   parameters:
-    function: 
-      module: 'sklearn'
-      function_name: 'model_selection.train_test_split'
+    function: sklearn.model_selection.train_test_split
     parameters:
       test_size: None
       random_state: 42
@@ -39,26 +30,27 @@ data_split:
 
 model_selection:
   input_from: ['data_split']
-  output_storage_type: {'estimator': 'pickle', 'metrics_results': 'csv'}
-  function: ModelSelection
+  output_storage_type: 
+    estimator: pickle 
+    metrics_results: csv
+  class: ConPipe.ModelSelection.ModelSelection
   parameters:
     parameter_optimizer: 
-      module: sklearn
-      class_name: model_selection.GridSearchCV
-    parameter_optimizer_params: 
-      refit: On
-    scoring: accuracy # esto tiene que poder ser una funcion custom desde el módulo también
+      class: sklearn.model_selection.GridSearchCV
+      scoring: accuracy # esto tiene que poder ser una funcion custom desde el módulo también
+      parameters: 
+        refit: On
     cv: 
-      module: 'sklearn'
-      class_name: 'model_selection.StratifiedKFold'
-    cv_parameters:
-      n_splits: 5
-      shuffle: On
-      random_state: 42
+      class: sklearn.model_selection.StratifiedKFold 
+      parameters:
+        n_splits: 5
+        shuffle: On
+        random_state: 42
     models: 
       LogisticRegression:
-        module: sklearn
-        class_name: linear_model.LogisticRegression
+        class: sklearn.linear_model.LogisticRegression
+        constructor_params:
+          random_state: 42
         param_grid:
           penalty: ['l1', 'l2']
           C: [0, 0.2, 0.4, 0.6, 0.8, 1.0]
@@ -66,8 +58,9 @@ model_selection:
         fit_params:
           sample_weight: None
       RandomForestClassifier:
-        module: sklearn
-        class_name: ensemble.RandomForestClassifier
+        class: sklearn.ensemble.RandomForestClassifier
+        constructor_params:
+          random_state: 42
         param_grid:
           n_estimators: [10, 100, 1000]
           criterion: ['gini', 'entropy']
@@ -77,7 +70,7 @@ model_selection:
 
 model_evaluation:
   input_from: ['data_split','model_selection']
-  function: ModelEvaluation
+  class: ConPipe.ModelEvaluation.ModelEvaluation
   parameters:
     fit_model: Off
     tag: test
@@ -87,24 +80,19 @@ model_evaluation:
       1: Positive
     scores: 
       accuracy:
-        module: sklearn
-        function_name: metrics.accuracy_score
+        function: sklearn.metrics.accuracy_score
         score_type: pred
       recall:
-        module: sklearn
-        function_name: metrics.recall_score
+        function: sklearn.metrics.recall_score
         score_type: pred
       auc:
-        module: sklearn
-        function_name: metrics.roc_auc_score
+        function: sklearn.metrics.roc_auc_score
         score_type: proba
     charts:
       roc:
-        module: ConPipe
-        functin_name: visualizations.roc_chart
+        function: ConPipe.visualizations.roc_chart
       confusion_matrix: 
-        module: ConPipe
-        function_name: visualizations.vonfusion_matrix_chart
+        function: ConPipe.visualizations.vonfusion_matrix_chart
         parameters:
           annot: On
           cmap: flare

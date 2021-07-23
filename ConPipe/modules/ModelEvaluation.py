@@ -2,7 +2,7 @@ import pandas as pd
 import os
 
 from ConPipe.Logger import Logger
-from ConPipe.ModuleLoader import ModuleLoader
+from ConPipe.module_loaders import get_function
 
 class ModelEvaluation():
 
@@ -14,7 +14,6 @@ class ModelEvaluation():
         self.class_labels = class_labels
         self.fit_model = fit_model
         self.logger = Logger()
-        self.loader = ModuleLoader()
 
         # Get all al score functions ready to run
         self.score_pred_functions = {}
@@ -22,10 +21,7 @@ class ModelEvaluation():
         self.score_parameters = {}
         for score_name, score_module in scores.items():
             
-            func = self.loader.get_function(
-                module=score_module['module'],
-                function_name=score_module['function_name']
-            ) 
+            func = get_function(score_module['function']) 
             
             if score_module['score_type'] == 'pred':
                 self.score_pred_functions[score_name] = func
@@ -39,11 +35,7 @@ class ModelEvaluation():
         self.chart_functions = {}
         self.chart_parameters = {}
         for chart_name, chart_module in self.charts.items():
-            self.chart_functions[chart_name] = self.loader.get_function(
-                module=chart_module['module'],
-                function_name=chart_module['function_name']
-            )
-
+            self.chart_functions[chart_name] = get_function(chart_module['function'])
             parameters = {} if 'parameters' not in chart_module else chart_module['parameters']
             self.chart_parameters[chart_name] = parameters
 

@@ -1,14 +1,13 @@
 
 import inspect
 
-from ConPipe.ModuleLoader import ModuleLoader
+from ConPipe.module_loaders import get_function
 
 class DataSplit():
 
     def __init__(self, function, parameters):
-        self.loader = ModuleLoader()
         self.parameters = parameters
-        self.data_split_function = self.loader.get_function(**function)        
+        self.data_split_function = get_function(function)        
 
     def run(self, X, y, group=None):
         
