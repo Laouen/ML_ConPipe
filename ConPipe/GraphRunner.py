@@ -5,7 +5,6 @@ from graph import Graph
 from ConPipe.FunctionModule import FunctionModule
 from ConPipe.module_loaders import add_path_to_modules, get_class, get_function
 from ConPipe.Logger import Logger
-from ConPipe.DefaultModules import DEFAULT_MODULES
 
 # Function to load yaml configuration file
 def load_config(config_path):
@@ -19,15 +18,20 @@ def load_config(config_path):
 class GraphRunner():
 
     def __init__(self, config_path):
-        add_path_to_modules(self.config['general']['module_paths'])
-        
         self.config = load_config(config_path)
         self.logger = Logger(self.config['general']['verbose'])
+
+        self.logger(3, 'add paths to modules')
+        add_path_to_modules(
+            self.config['general']['module_paths'],
+            self.logger
+        )
+
         self._load_graph()
 
     def _load_graph(self):
 
-        # Create all DAG nodes
+        self.logger(3, 'Create all DAG nodes')
         self.graph_ = Graph()
 
         for name, config in self.config.items():
@@ -36,14 +40,16 @@ class GraphRunner():
 
             # Obtain the module to run
             if 'class' in config:
+                self.logger(4, f'Add class node {name} to the execution graph')
                 module = get_class(config['class'])(
                     **config['parameters']
                 )
 
             elif 'function' in config:
+                self.logger(4, f'Add function node {name} to the execution graph')
                 module = FunctionModule(
                     function=get_function(config['function']),
-                    parameters=config['parameters']
+                    parameters=config['parameters'] if 'parameters' in config else {}
                 )
 
             else:
@@ -54,16 +60,19 @@ class GraphRunner():
                 {**config, 'module': module}
             )
 
-        # Build DAG graph
-        for curr_node_name in self.graph_.nodes():
+        self.logger(3, 'Build DAG graph')
+        for node_name in self.graph_.nodes():
 
-            curr_node = self.graph_.node(curr_node_name)
+            node = self.graph_.node(node_name)
 
-            if 'input_from' not in curr_node or len(curr_node['input_from']) == 0:
+            if 'input_from' not in node or len(node['input_from']) == 0:
+                self.logger(4, f'node {node_name} has no input')
                 continue
 
-            for node in curr_node['input_from']:
-                self.graph_.add_edge(curr_node_name, node)
+            self.logger(4, f'create graph dependency connections for node {node_name}')
+            for input_node in node['input_from']:
+                self.logger(6, f'\tadd dependency {input_node} to node {node_name}')
+                self.graph_.add_edge(node_name, input_node)
 
 
     def run(self):
@@ -71,25 +80,28 @@ class GraphRunner():
         # TODO: load output from disk
         # TODO: make a system to restart training from last place
 
-        for curr_node_name in self.graph_.topological_sort():
+        self.logger(2, 'Run execution graph')
+        for node_name in self.graph_.topological_sort():
 
-            curr_node = self.graph_.node(curr_node_name)
+            self.logger(1, f'Processing node {node_name}')
+            node = self.graph_.node(node_name)
             
             # If node is already calculated, then skip recalculation
-            if curr_node['output'] is not None:
-                self.logger(1, f'Skipping already executed node: {curr_node}')
+            if node['output'] is not None:
+                self.logger(2, f'Skipping already executed node: {node_name}')
                 continue
 
-            self.logger(1, f'executing node: {curr_node}')
-            
-            # Collect inputs from dependent nodes
+            self.logger(4, f'Collect {node_name} inputs from dependent nodes')
             inputs = {} 
-            for node in self.graph_.node(curr_node)['input_from']:
-                inputs.update(self.graph_.node(node)['output'])
+            for sender_node, input_map in node['input_map'].items():
+                self.logger(6, f'\tCollect output from {sender_node}')
+                output = self.graph_.node(sender_node)['output']
+                for from_param, to_param in input_map.items():
+                    self.logger(10, f'\tMap output {sender_node}.{from_param} output to {node_name}.{to_param} input')
+                    inputs[to_param] = output[from_param]
             
-            # Compute output and save result in graph
-            output = self.graph_.node(node)['module'].run(**inputs)
-            self.graph_.node(node)['output'] = output
+            self.logger(2, f'Executing {node_name}')
+            node['output'] = node['module'].run(**inputs)
 
             # TODO: save output to disk
 
