@@ -15,21 +15,26 @@ def get_module_object(object_name):
         module = importlib.import_module(module_name)
         return getattr(module, obj_name)
     except ModuleNotFoundError:
-        print(f'El módulo {module_name} no existe')
+        raise ModuleNotFoundError(f'El módulo {module_name} no existe')
     except AttributeError:
-        print(f'El módulo {module_name} no tiene definido a {obj_name}')
+        raise AttributeError(
+            f'El módulo {module_name} no tiene definido a {obj_name}')
 
 def get_function(function_name):
     func = get_module_object(function_name)
 
     if not hasattr(func, '__call__'):
         raise NotFunctionModuleError(f'{function_name} is not callable (i.e. a function)')
+    
+    return func
 
 def get_class(class_name):
     class_obj = get_module_object(class_name)
 
     if not inspect.isclass(class_obj):
         raise NotClassModuleError(f'{class_name} is not a class')
+    
+    return class_obj
 
 def add_path_to_modules(module_paths, logger):
     for module_path in module_paths:

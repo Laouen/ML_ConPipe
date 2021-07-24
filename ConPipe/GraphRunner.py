@@ -57,7 +57,11 @@ class GraphRunner():
 
             self.graph_.add_node(
                 name, 
-                {**config, 'module': module}
+                {
+                    **config,
+                    'module': module,
+                    'output': None
+                }
             )
 
         self.logger(3, 'Build DAG graph')
@@ -92,16 +96,23 @@ class GraphRunner():
                 continue
 
             self.logger(4, f'Collect {node_name} inputs from dependent nodes')
-            inputs = {} 
+            args = []
+            kwargs = {} 
             for sender_node, input_map in node['input_map'].items():
                 self.logger(6, f'\tCollect output from {sender_node}')
                 output = self.graph_.node(sender_node)['output']
                 for from_param, to_param in input_map.items():
                     self.logger(10, f'\tMap output {sender_node}.{from_param} output to {node_name}.{to_param} input')
-                    inputs[to_param] = output[from_param]
+                    
+                    if type(to_param) == int:
+                        args.append((to_param, output[from_param]))
+                    else:
+                        kwargs[to_param] = output[from_param]
+            args = sorted(args, key=lambda x: x[0])
+            args = [x[1] for x in args]
             
             self.logger(2, f'Executing {node_name}')
-            node['output'] = node['module'].run(**inputs)
+            node['output'] = node['module'].run(*args, **kwargs)
 
             # TODO: save output to disk
 

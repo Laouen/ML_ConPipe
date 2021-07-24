@@ -6,7 +6,7 @@ from ConPipe.module_loaders import get_class
 
 class ModelSelection():
 
-    def __init__(self, parameter_optimizer, parameter_optimizer_params, scoring, cv, cv_parameters, models):
+    def __init__(self, parameter_optimizer, cv, models):
 
         self.logger = Logger()
 
@@ -27,14 +27,15 @@ class ModelSelection():
             for model_name, model_params in models.items()
         }
         
-        cv = get_class(cv['class'])
+        cv_class = get_class(cv['class'])
+        print('HOLA', cv['parameters'])
         search_module = get_class(parameter_optimizer['class'])
         self.parameter_optimizers_ = {
             model_name: search_module(
                 estimator=model,
                 param_grid=self.param_grids[model_name],
                 scoring=parameter_optimizer['scoring'],
-                cv=cv(**cv['parameters']),
+                cv=cv_class(**cv['parameters']),
                 verbose=self.logger.verbose,
                 **parameter_optimizer['parameters']
             ) for model_name, model in self.models.items()

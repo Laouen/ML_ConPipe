@@ -29,7 +29,7 @@ class ModelEvaluation():
                 self.score_proba_functions = func
 
             parameters = {} if 'parameters' not in score_module else score_module['parameters']
-            self.score_parameters[score_module] = parameters
+            self.score_parameters[score_name] = parameters
 
         # Get all chart functions ready to run
         self.chart_functions = {}
