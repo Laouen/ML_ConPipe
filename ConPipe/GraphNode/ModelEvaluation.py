@@ -26,7 +26,7 @@ class ModelEvaluation():
             if score_module['score_type'] == 'pred':
                 self.score_pred_functions[score_name] = func
             elif score_module['score_type'] == 'proba':
-                self.score_proba_functions = func
+                self.score_proba_functions[score_name] = func
 
             parameters = {} if 'parameters' not in score_module else score_module['parameters']
             self.score_parameters[score_name] = parameters

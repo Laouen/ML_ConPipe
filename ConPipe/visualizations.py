@@ -12,7 +12,7 @@ def roc_chart(y_true, y_pred, y_probas, classes, class_labels, output_path):
     fpr = dict()
     tpr = dict()
     roc_auc = dict()
-    for i,c in enumerate(n_classes):
+    for i,c in enumerate(classes):
         fpr[i], tpr[i], _ = roc_curve((y_true == c).astype(int), y_probas[:, i])
         roc_auc[i] = auc(fpr[i], tpr[i])
 
