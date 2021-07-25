@@ -28,7 +28,6 @@ class ModelSelection():
         }
         
         cv_class = get_class(cv['class'])
-        print('HOLA', cv['parameters'])
         search_module = get_class(parameter_optimizer['class'])
         self.parameter_optimizers_ = {
             model_name: search_module(
@@ -51,26 +50,26 @@ class ModelSelection():
     def run(self, X, y=None, groups=None):
         self.logger(1, f'Select best model and parameters')
 
+        self.cv_results_ = []
         for model_name, optimizer in self.parameter_optimizers_.items(): 
             optimizer.fit(
                 X, y=y, groups=groups,
                 **self.fit_params[model_name]
             )
+            
+            self.cv_results_.append(pd.DataFrame(optimizer.cv_results_))
+            self.cv_results_[-1]['model_name'] = model_name
 
-        if hasattr(self.parameter_optimizers_.values()[0], 'cv_results_'):
-            self.cv_results_ = pd.concat([
-                pd.DataFrame(optimizer.cv_results_).assign(model_name=model_name)
-                for model_name,optimizer in self.parameter_optimizers_.items()
-            ])
+        self.cv_results_ = pd.concat(self.cv_results_)
 
-            self.cv_results_.sort_values(
-                by='rank_test_score',
-                axis=0,
-                inplace=True,
-                ignore_index=True
-            )
+        self.cv_results_.sort_values(
+            by='rank_test_score',
+            axis=0,
+            inplace=True,
+            ignore_index=True
+        )
 
-            self.cv_results_.loc[:, 'rank_test_score'] = self.cv_results_.index + 1
+        self.cv_results_.loc[:, 'rank_test_score'] = self.cv_results_.index + 1
 
 
         self.best_index_ = 0 
@@ -79,6 +78,9 @@ class ModelSelection():
         self.best_estimator_ = self.best_optimizer_.best_estimator_
         self.best_score_ = self.best_optimizer_.best_score_
         self.best_params_ = self.best_optimizer_.best_params_
+
+        self.logger(1, f'Best model: {best_model}')
+        self.logger(1, f'Best parameters: {self.best_params_}')
 
         return {
             'estimator': self.best_estimator_,

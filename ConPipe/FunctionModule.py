@@ -4,8 +4,9 @@ class FunctionModule():
         self.parameters = parameters
         self.function = function
 
-    def run(self, inputs):
+    def run(self, *args, **kwargs):
         return self.function(
-            inputs,
+            *args,
+            **kwargs,
             **self.parameters
         )

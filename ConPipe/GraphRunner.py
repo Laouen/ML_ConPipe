@@ -75,14 +75,16 @@ class GraphRunner():
 
             self.logger(4, f'create graph dependency connections for node {node_name}')
             for input_node in node['input_from']:
-                self.logger(6, f'\tadd dependency {input_node} to node {node_name}')
-                self.graph_.add_edge(node_name, input_node)
+                self.logger(6, f'add dependency {input_node} to node {node_name}', 1)
+                self.graph_.add_edge(input_node, node_name)
 
 
     def run(self):
 
         # TODO: load output from disk
         # TODO: make a system to restart training from last place
+
+        print(self.graph_.to_dict())
 
         self.logger(2, 'Run execution graph')
         for node_name in self.graph_.topological_sort():
@@ -95,21 +97,22 @@ class GraphRunner():
                 self.logger(2, f'Skipping already executed node: {node_name}')
                 continue
 
-            self.logger(4, f'Collect {node_name} inputs from dependent nodes')
             args = []
-            kwargs = {} 
-            for sender_node, input_map in node['input_map'].items():
-                self.logger(6, f'\tCollect output from {sender_node}')
-                output = self.graph_.node(sender_node)['output']
-                for from_param, to_param in input_map.items():
-                    self.logger(10, f'\tMap output {sender_node}.{from_param} output to {node_name}.{to_param} input')
-                    
-                    if type(to_param) == int:
-                        args.append((to_param, output[from_param]))
-                    else:
-                        kwargs[to_param] = output[from_param]
-            args = sorted(args, key=lambda x: x[0])
-            args = [x[1] for x in args]
+            kwargs = {}
+            if 'input_map' in node:
+                self.logger(4, f'Collect {node_name} inputs from dependent nodes') 
+                for sender_node, input_map in node['input_map'].items():
+                    self.logger(6, f'Collect input from {sender_node}', 1)
+                    output = self.graph_.node(sender_node)['output']
+                    for from_param, to_param in input_map.items():
+                        self.logger(10, f'Map {sender_node}.{from_param} output to {node_name}.{to_param} input', 2)
+                        
+                        if type(to_param) == int:
+                            args.append((to_param, output[from_param]))
+                        else:
+                            kwargs[to_param] = output[from_param]
+                args = sorted(args, key=lambda x: x[0])
+                args = [x[1] for x in args]
             
             self.logger(2, f'Executing {node_name}')
             node['output'] = node['module'].run(*args, **kwargs)
