@@ -91,7 +91,16 @@ class GraphRunner():
                 self.logger(6, f'add dependency {input_node} to node {node_name}', 1)
                 self.graph_.add_edge(input_node, node_name)
 
+    def _load_nodes_inputs(self):
+
+        for node_name in self.graph_.nodes():
+            node = self.graph_.node(node_name)
+
+            
+    
     def _save_output(self, node):
+
+        self.logger(2, f'Saving {node["name"]} output')
 
         # Create the node folder where to store output
         output_dir = os.path.join(self.save_dir, node['name'], 'output')
@@ -99,6 +108,8 @@ class GraphRunner():
             parents=True, 
             exist_ok=True
         )
+
+        self.logger(6, f'Saving output to {output_dir}')
 
         output_types = node['output_storage_type']
 
@@ -110,30 +121,24 @@ class GraphRunner():
 
         for output_name, output_val in node['output'].items():
             if output_types[output_name] == 'json':
-                json.dump(
-                    output_val,
-                    open(os.path.join(output_dir, f'{output_name}.json'), 'w'),
-                    indent=2
-                )
+                output_file = open(os.path.join(output_dir, f'{output_name}.json'), 'w')
+                self.logger(6, f'Saving output {output_name} to {output_file}')
+                json.dump(output_val, output_file, indent=2)
             
             elif output_types[output_name] == 'csv':
-                output_val.to_csv(
-                    open(os.path.join(output_dir, f'{output_name}.csv'), 'w'),
-                    sep=';',
-                    index=False
-                )
+                output_file = os.path.join(output_dir, f'{output_name}.csv')
+                self.logger(6, f'Saving output {output_name} to {output_file}')
+                output_val.to_csv(output_file, sep=';', index=False)
 
             elif output_types[output_name] == 'npy':
-                np.save(
-                    open(os.path.join(output_dir, f'{output_name}.npy'), 'w'),
-                    output_val
-                )
+                output_file = os.path.join(output_dir, f'{output_name}.npy')
+                self.logger(6, f'Saving output {output_name} to {output_file}')
+                np.save(output_file, output_val)
             
             elif output_types[output_name] == 'pickle':
-                pickle.dump(
-                    output_val,
-                    open(os.path.join(output_dir, f'{output_name}.pickle'), 'w')
-                )
+                output_file = os.path.join(output_dir, f'{output_name}.pickle')
+                self.logger(6, f'Saving output {output_name} to {output_file}')
+                pickle.dump(output_val, open(output_file, 'wb'))
 
 
     def run(self):
@@ -174,4 +179,5 @@ class GraphRunner():
             self.logger(2, f'Executing {node_name}')
             node['output'] = node['module'].run(*args, **kwargs)
 
-            self._save_output(node)
+            if 'output_storage_type' in node:
+                self._save_output(node)
