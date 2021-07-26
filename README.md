@@ -22,8 +22,3 @@ custom_model.py
 ```
 Ejemplo de un modelo custom
 ```
-
-
-# TODO:
-* Guardar y recargar outputs desde el disco y retomar corrida desde donde dejó
-* Parallelizar grafo de corridaas con subprocessos y dependencias
