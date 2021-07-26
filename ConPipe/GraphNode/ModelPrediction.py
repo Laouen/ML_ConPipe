@@ -6,7 +6,7 @@ from ConPipe.module_loaders import get_class
 from sklearn.base import clone
 
 
-class ModelExecution():
+class ModelPrediction():
 
     def __init__(self, fit_model=False, cv=None):
 

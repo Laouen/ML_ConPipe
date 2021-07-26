@@ -5,7 +5,8 @@ import os
 from ConPipe.Logger import Logger
 from ConPipe.module_loaders import get_function
 
-class ModelEvaluation():
+
+class ResultEvaluation():
 
     def __init__(self, scores, charts, output_path, tag, classes, class_labels=None):
 

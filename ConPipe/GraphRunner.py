@@ -1,6 +1,10 @@
-from os import scandir
+from pathlib import Path
 import yaml
 from graph import Graph
+import json
+import os
+import pickle
+import numpy as np
 
 from ConPipe.FunctionModule import FunctionModule
 from ConPipe.module_loaders import add_path_to_modules, get_class, get_function
@@ -20,6 +24,12 @@ class GraphRunner():
     def __init__(self, config_path):
         self.config = load_config(config_path)
         self.logger = Logger(self.config['general']['verbose'])
+        self.save_dir = os.path.join(
+            self.config['general']['save_path'],
+            'execution_state'
+        )
+
+        Path(self.save_dir).mkdir(parents=True, exist_ok=True)
 
         self.logger(3, 'add paths to modules')
         add_path_to_modules(
@@ -62,6 +72,7 @@ class GraphRunner():
                 {
                     **config,
                     'module': module,
+                    'name': name,
                     'output': None
                 }
             )
@@ -79,6 +90,50 @@ class GraphRunner():
             for input_node in node['input_map'].keys():
                 self.logger(6, f'add dependency {input_node} to node {node_name}', 1)
                 self.graph_.add_edge(input_node, node_name)
+
+    def _save_output(self, node):
+
+        # Create the node folder where to store output
+        output_dir = os.path.join(self.save_dir, node['name'], 'output')
+        Path(output_dir).mkdir(
+            parents=True, 
+            exist_ok=True
+        )
+
+        output_types = node['output_storage_type']
+
+        if type(output_types) == str:
+            output_types = {
+                output_name: output_types
+                for output_name in node['output'].keys()
+            }
+
+        for output_name, output_val in node['output'].items():
+            if output_types[output_name] == 'json':
+                json.dump(
+                    output_val,
+                    open(os.path.join(output_dir, f'{output_name}.json'), 'w'),
+                    indent=2
+                )
+            
+            elif output_types[output_name] == 'csv':
+                output_val.to_csv(
+                    open(os.path.join(output_dir, f'{output_name}.csv'), 'w'),
+                    sep=';',
+                    index=False
+                )
+
+            elif output_types[output_name] == 'npy':
+                np.save(
+                    open(os.path.join(output_dir, f'{output_name}.npy'), 'w'),
+                    output_val
+                )
+            
+            elif output_types[output_name] == 'pickle':
+                pickle.dump(
+                    output_val,
+                    open(os.path.join(output_dir, f'{output_name}.pickle'), 'w')
+                )
 
 
     def run(self):
@@ -119,6 +174,4 @@ class GraphRunner():
             self.logger(2, f'Executing {node_name}')
             node['output'] = node['module'].run(*args, **kwargs)
 
-            # TODO: save output to disk
-
-
+            self._save_output(node)

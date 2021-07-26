@@ -11,9 +11,6 @@ def roc_chart(y_true, y_pred, y_probas, classes, class_labels):
     for i,c in enumerate(classes):
         fpr[i], tpr[i], _ = roc_curve((y_true == c).astype(int), y_probas[:, i])
         roc_auc[i] = auc(fpr[i], tpr[i])
-    
-    print(f'fpr:', fpr[0])
-    print(f'tpr:', tpr[0])
 
     # Plot of a ROC curve for a specific class
     plt.plot([0, 1], [0, 1], 'k--')
