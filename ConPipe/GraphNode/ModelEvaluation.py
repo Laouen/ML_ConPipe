@@ -1,4 +1,5 @@
 import pandas as pd
+import matplotlib.pyplot as plt
 import os
 
 from ConPipe.Logger import Logger
@@ -6,13 +7,12 @@ from ConPipe.module_loaders import get_function
 
 class ModelEvaluation():
 
-    def __init__(self, scores, charts, output_path, tag, class_labels, fit_model):
+    def __init__(self, scores, charts, output_path, tag, classes, class_labels=None):
 
-        self.charts = charts
         self.output_path = output_path
         self.tag = tag
+        self.classes = classes
         self.class_labels = class_labels
-        self.fit_model = fit_model
         self.logger = Logger()
 
         # Get all al score functions ready to run
@@ -34,74 +34,71 @@ class ModelEvaluation():
         # Get all chart functions ready to run
         self.chart_functions = {}
         self.chart_parameters = {}
-        for chart_name, chart_module in self.charts.items():
+        for chart_name, chart_module in charts.items():
             self.chart_functions[chart_name] = get_function(chart_module['function'])
             parameters = {} if 'parameters' not in chart_module else chart_module['parameters']
             self.chart_parameters[chart_name] = parameters
 
+    def run(self, y_true, y_pred, y_probas, classes):
 
-    # Ver si le agregamos que evalue X_train, y_train con CV o algo
-    def run(self, estimator, X_test, y_test, X_train=None, y_train=None):
-        
-        if self.fit_model:
-            if X_train is None or y_train is None:
-                raise ValueError("X_train and y_train can't be None if fit_model is true")
-            estimator.fit(X_train, y_train)
-
-        classes = estimator.classes_
         class_labels = [
             self.class_labels[c]
             for c in classes
         ]
 
-        y_pred = estimator.predict(X_test)
-        y_probas = estimator.predict_proba(X_test)
+        self._make_charts(y_true, y_pred, y_probas, classes, class_labels)
+        self._calculate_scores(y_true, y_pred, y_probas)
 
-        self.make_charts(y_test, y_pred, y_probas, classes, class_labels)
-        self.calculate_scores(y_test, y_pred, y_probas)
-
-    
-    def make_charts(self,y_test, y_pred, y_probas, classes, class_labels):
+    def _make_charts(self, y_true, y_pred, y_probas, classes, class_labels):
         for chart_name, chart_function in self.chart_functions.items():
             self.logger(2, f'making chart {chart_name}')
+            plt.clf()
             chart_function(
-                y_true=y_test,
-                y_pred=y_pred,
-                y_probas=y_probas,
+                y_true=y_true.copy(),
+                y_pred=y_pred.copy(),
+                y_probas=y_probas.copy(),
                 classes=classes,
                 class_labels=class_labels,
-                output_path=self.output_path,
                 **self.chart_parameters[chart_name]
             )
 
-    def calculate_scores(self, y_test, y_pred, y_probas):
+            plt.savefig(
+                os.path.join(
+                    self.output_path,
+                    f'{self.tag}_{chart_name}.png'
+                )
+            )
+
+    def _calculate_scores(self, y_true, y_pred, y_probas):
+        
+        scores = []
         # Calculate scores with y_pred
-        scores = [
-            {
+        for score_name, score_function in self.score_pred_functions.items():
+            self.logger(2, f'Calculating score {score_name}')
+            scores.append({
                 'score_name': score_name,
                 'score_val': score_function(
-                    y_test,
+                    y_true,
                     y_pred,
                     **self.score_parameters[score_name]
                 )
-            } for score_name, score_function in self.score_pred_functions.items()
-        ]
-
-        # Calculate scores with y_probas[:,1]
-        scores += [
-            {
+            })
+        
+        # Calculate scores with y_probas
+        for score_name, score_function in self.score_proba_functions.items():
+            self.logger(2, f'Calculating score {score_name}')
+            scores.append({
                 'score_name': score_name,
                 'score_val': score_function(
-                    y_test,
-                    y_probas[:,1],
+                    y_true,
+                    y_probas,
                     **self.score_parameters[score_name]
                 )
-            } for score_name, score_function in self.score_proba_functions.items()
-        ]
+            })
 
-        # TODO: calulate scores for multiclass and multioutput
-        # TODO: implement one vs rest for multiclass, currently only works for positive class
-
+        self.logger(1, 'Obtained scores:')
+        self.logger(1, scores)
+        
         pd.DataFrame(scores).to_csv(
             os.path.join(self.output_path, f'{self.tag}_scores.csv'),
             sep=';',

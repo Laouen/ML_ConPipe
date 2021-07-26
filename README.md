@@ -25,7 +25,5 @@ Ejemplo de un modelo custom
 
 
 # TODO:
-* Agregar un input_to_param mapper opcional para poder mapear correctalemte la salida de un modelo con la entrada de otro modelo
-* Agregar modelos multiclass y multioutput al ModuleEvaluator
 * Guardar y recargar outputs desde el disco y retomar corrida desde donde dejó
 * Parallelizar grafo de corridaas con subprocessos y dependencias

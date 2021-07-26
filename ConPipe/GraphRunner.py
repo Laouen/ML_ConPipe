@@ -38,18 +38,20 @@ class GraphRunner():
             if name == 'general':
                 continue
 
+            parameter = config['parameters'] if 'parameters' in config else {}
+
             # Obtain the module to run
             if 'class' in config:
                 self.logger(4, f'Add class node {name} to the execution graph')
                 module = get_class(config['class'])(
-                    **config['parameters']
+                    **parameter
                 )
 
             elif 'function' in config:
                 self.logger(4, f'Add function node {name} to the execution graph')
                 module = FunctionModule(
                     function=get_function(config['function']),
-                    parameters=config['parameters'] if 'parameters' in config else {}
+                    parameters=parameter
                 )
 
             else:
@@ -69,12 +71,12 @@ class GraphRunner():
 
             node = self.graph_.node(node_name)
 
-            if 'input_from' not in node or len(node['input_from']) == 0:
+            if 'input_map' not in node or len(node['input_map']) == 0:
                 self.logger(4, f'node {node_name} has no input')
                 continue
 
             self.logger(4, f'create graph dependency connections for node {node_name}')
-            for input_node in node['input_from']:
+            for input_node in node['input_map'].keys():
                 self.logger(6, f'add dependency {input_node} to node {node_name}', 1)
                 self.graph_.add_edge(input_node, node_name)
 
