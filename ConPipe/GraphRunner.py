@@ -5,6 +5,8 @@ import json
 import os
 import pickle
 import numpy as np
+import glob
+import pandas as pd
 
 from ConPipe.FunctionModule import FunctionModule
 from ConPipe.module_loaders import add_path_to_modules, get_class, get_function
@@ -18,7 +20,6 @@ def load_config(config_path):
     return config
 
 
-
 class GraphRunner():
 
     def __init__(self, config_path):
@@ -28,6 +29,9 @@ class GraphRunner():
             self.config['general']['save_path'],
             'execution_state'
         )
+        self.pandas_sep = ';'
+        if 'pandas_params'in self.config['general']:
+            self.pandas_sep = self.config['general']['pandas_sep']
 
         Path(self.save_dir).mkdir(parents=True, exist_ok=True)
 
@@ -91,13 +95,41 @@ class GraphRunner():
                 self.logger(6, f'add dependency {input_node} to node {node_name}', 1)
                 self.graph_.add_edge(input_node, node_name)
 
-    def _load_nodes_inputs(self):
+    def _load_nodes_output(self):
+
+        self.logger(2, 'Load node cached outputs')
 
         for node_name in self.graph_.nodes():
             node = self.graph_.node(node_name)
+            output_dir = os.path.join(self.save_dir, node['name'], 'output')
+            if not node['cache_output']:
+                self.logger(4, f'Node {node_name} cache output set to False', 1)
+            elif os.path.isdir(output_dir):    
+                self.logger(4, f'Load node {node_name} cached outputs', 1)
+                node['output'] = {}
+                for file in glob.glob(os.path.join(output_dir, '*.json')):
+                    output_name = file.split('/')[-1].replace('.json', '')
+                    self.logger(6, f'Load {node_name}.{output_name}.json output', 2)
+                    node['output'][output_name] = json.load(open(file, 'r'))
+                
+                for file in glob.glob(os.path.join(output_dir, '*.npy')):
+                    output_name = file.split('/')[-1].replace('.npy', '')
+                    self.logger(6, f'Load {node_name}.{output_name}.npy output', 2)
+                    node['output'][output_name] = np.load(file)
+                
+                for file in glob.glob(os.path.join(output_dir, '*.csv')):
+                    output_name = file.split('/')[-1].replace('.csv', '')
+                    self.logger(6, f'Load {node_name}.{output_name}.csv output', 2)
+                    node['output'][output_name] = pd.read_csv(
+                        file,
+                        sep=self.pandas_sep
+                    )
+                
+                for file in glob.glob(os.path.join(output_dir, '*.pickle')):
+                    output_name = file.split('/')[-1].replace('.pickle', '')
+                    self.logger(6, f'Load {node_name}.{output_name}.pickle output', 2)
+                    node['output'][output_name] = pickle.load(open(file, 'rb'))
 
-            
-    
     def _save_output(self, node):
 
         self.logger(2, f'Saving {node["name"]} output')
@@ -120,33 +152,34 @@ class GraphRunner():
             }
 
         for output_name, output_val in node['output'].items():
+            
             if output_types[output_name] == 'json':
-                output_file = open(os.path.join(output_dir, f'{output_name}.json'), 'w')
-                self.logger(6, f'Saving output {output_name} to {output_file}')
-                json.dump(output_val, output_file, indent=2)
+                output_file = os.path.join(output_dir, f'{output_name}.json')
+                self.logger(4, f'Saving output {output_name} to {output_file}')
+                json.dump(output_val, open(output_file, 'w'), indent=2)
             
             elif output_types[output_name] == 'csv':
                 output_file = os.path.join(output_dir, f'{output_name}.csv')
-                self.logger(6, f'Saving output {output_name} to {output_file}')
-                output_val.to_csv(output_file, sep=';', index=False)
+                self.logger(4, f'Saving output {output_name} to {output_file}')
+                output_val.to_csv(
+                    output_file,
+                    sep=self.pandas_sep,
+                    index=False
+                )
 
             elif output_types[output_name] == 'npy':
                 output_file = os.path.join(output_dir, f'{output_name}.npy')
-                self.logger(6, f'Saving output {output_name} to {output_file}')
+                self.logger(4, f'Saving output {output_name} to {output_file}')
                 np.save(output_file, output_val)
             
             elif output_types[output_name] == 'pickle':
                 output_file = os.path.join(output_dir, f'{output_name}.pickle')
-                self.logger(6, f'Saving output {output_name} to {output_file}')
+                self.logger(4, f'Saving output {output_name} to {output_file}')
                 pickle.dump(output_val, open(output_file, 'wb'))
-
 
     def run(self):
 
-        # TODO: load output from disk
-        # TODO: make a system to restart training from last place
-
-        print(self.graph_.to_dict())
+        self._load_nodes_output()
 
         self.logger(2, 'Run execution graph')
         for node_name in self.graph_.topological_sort():
