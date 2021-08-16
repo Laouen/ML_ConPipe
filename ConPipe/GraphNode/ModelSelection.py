@@ -11,7 +11,7 @@ class ModelSelection():
         self.logger = Logger()
 
         self.fit_params = {
-            model_name: model_params['fit_params']
+            model_name: model_params['fit_params'] if 'fit_params' in model_params else {}
             for model_name, model_params in models.items()
         }
 

@@ -19,6 +19,22 @@ def load_config(config_path):
 
     return config
 
+def bypass_node(*args, **kwargs):
+    if 'bypass_inout_map' not in kwargs:
+        raise ValueError('bypass is On, but bypass_onout_map is not defined')
+
+    outputs = {}
+
+    for from_input, to_output in kwargs['bypass_inout_map'].items():
+        if from_input in kwargs:
+            outputs[to_output] = kwargs[from_input]
+        elif from_input.isdigit() and (0 < int(from_input) < len(args)):
+            outputs[to_output] = args[int(from_input)]
+        else:
+            raise ValueError('Input {from_input} not in node inputs')
+    
+    return outputs
+
 
 class GraphRunner():
 
@@ -30,7 +46,7 @@ class GraphRunner():
             'execution_state'
         )
         self.pandas_sep = ';'
-        if 'pandas_params'in self.config['general']:
+        if 'pandas_sep'in self.config['general']:
             self.pandas_sep = self.config['general']['pandas_sep']
 
         Path(self.save_dir).mkdir(parents=True, exist_ok=True)
@@ -54,8 +70,16 @@ class GraphRunner():
 
             parameter = config['parameters'] if 'parameters' in config else {}
 
+
             # Obtain the module to run
-            if 'class' in config:
+            if 'bypass' in config and config['bypass']:
+                self.logger(4, f'bypassed node {name}')
+                module = FunctionModule(
+                    function=bypass_node,
+                    parameters={'bypass_inout_map': config['bypass_inout_map']}
+                )
+
+            elif 'class' in config:
                 self.logger(4, f'Add class node {name} to the execution graph')
                 module = get_class(config['class'])(
                     **parameter
