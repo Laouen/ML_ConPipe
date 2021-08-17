@@ -50,10 +50,10 @@ class ModelPrediction():
             )
 
         return {
-            'classes': classes,
             'y_true': y_true,
             'y_pred': y_pred,
             'y_probas': y_probas,
+            'classes': classes
         }
 
     def _run_re_fit(self, estimator, X, y, X_train, y_train):

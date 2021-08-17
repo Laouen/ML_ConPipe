@@ -13,9 +13,15 @@ from ConPipe.module_loaders import add_path_to_modules, get_class, get_function
 from ConPipe.Logger import Logger
 
 # Function to load yaml configuration file
-def load_config(config_path):
+def load_config(config_path, extra_parameters):
     with open(config_path) as file:
         config = yaml.safe_load(file)
+
+    for module, kwargs in extra_parameters.items():
+        if 'parameters' in config[module]:
+            config[module]['parameters'].update(kwargs)
+        else:
+            config[module].update(kwargs)
 
     return config
 
@@ -38,8 +44,8 @@ def bypass_node(*args, **kwargs):
 
 class GraphRunner():
 
-    def __init__(self, config_path):
-        self.config = load_config(config_path)
+    def __init__(self, config_path, extra_parameters):
+        self.config = load_config(config_path, extra_parameters)
         self.logger = Logger(self.config['general']['verbose'])
         self.save_dir = os.path.join(
             self.config['general']['save_path'],
