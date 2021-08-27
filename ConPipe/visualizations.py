@@ -2,8 +2,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import roc_curve, auc, confusion_matrix
+import numpy as np
 
-def roc_cruve_binary(y_true, y_pred, y_probas, classes, class_labels):
+def roc_chart_binary(y_true, y_pred, y_probas, classes, class_labels):
 
     if len(classes) != 2:
         raise ValueError('classes must be arrays with 2 elements')
@@ -27,8 +28,7 @@ def roc_cruve_binary(y_true, y_pred, y_probas, classes, class_labels):
     plt.ylim([0.0, 1.0])
     
 
-# TODO: y_probas, classes y class_labels must share the same class order
-def roc_chart(y_true, y_pred, y_probas, classes, class_labels):
+def roc_chart_multilabel(y_true, y_pred, y_probas, classes, class_labels):
     # Compute ROC curve and ROC area for each class
     fpr = dict()
     tpr = dict()
@@ -52,6 +52,13 @@ def roc_chart(y_true, y_pred, y_probas, classes, class_labels):
     plt.legend(loc="lower right")
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.0])
+
+
+def roc_chart(y_true, y_pred, y_probas, classes, class_labels):
+    if np.unique(y_true).shape[0] == 2:
+        roc_chart_binary(y_true, y_pred, y_probas, classes, class_labels)
+    else:
+        roc_chart_multilabel(y_true, y_pred, y_probas, classes, class_labels)
 
 
 def confusion_matrix_chart(y_true, y_pred, y_probas, classes, class_labels, annot=True, cmap='flare', fmt='g'):
