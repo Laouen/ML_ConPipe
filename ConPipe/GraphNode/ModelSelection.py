@@ -2,11 +2,12 @@ import pandas as pd
 
 from ConPipe.exceptions import NotExistentMethodError
 from ConPipe.Logger import Logger
-from ConPipe.module_loaders import get_class
+from ConPipe.module_loaders import get_class, get_function
+from sklearn.metrics import make_scorer
 
 class ModelSelection():
 
-    def __init__(self, parameter_optimizer, cv, models):
+    def __init__(self, parameter_optimizer, scoring, cv, models):
 
         self.logger = Logger()
 
@@ -27,13 +28,21 @@ class ModelSelection():
             for model_name, model_params in models.items()
         }
         
+        scoring_function = get_function(scoring['function'])
+        if 'parameters' in scoring:
+            scoring_function = make_scorer(
+                scoring_function,
+                **scoring['parameters']
+            )
+
         cv_class = get_class(cv['class'])
+
         search_module = get_class(parameter_optimizer['class'])
         self.parameter_optimizers_ = {
             model_name: search_module(
                 estimator=model,
                 param_grid=self.param_grids[model_name],
-                scoring=parameter_optimizer['scoring'],
+                scoring=scoring_function,
                 cv=cv_class(**cv['parameters']),
                 verbose=self.logger.verbose,
                 **parameter_optimizer['parameters']
