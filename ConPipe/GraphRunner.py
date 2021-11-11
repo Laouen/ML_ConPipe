@@ -1,6 +1,7 @@
 from pathlib import Path
-import yaml
 from graph import Graph
+from datetime import datetime
+import yaml
 import json
 import os
 import pickle
@@ -26,18 +27,17 @@ def load_config(config_path, extra_parameters):
     return config
 
 def bypass_node(*args, **kwargs):
-    if 'bypass_inout_map' not in kwargs:
-        raise ValueError('bypass is On, but bypass_onout_map is not defined')
 
     outputs = {}
 
-    for from_input, to_output in kwargs['bypass_inout_map'].items():
-        if from_input in kwargs:
-            outputs[to_output] = kwargs[from_input]
-        elif from_input.isdigit() and (0 < int(from_input) < len(args)):
-            outputs[to_output] = args[int(from_input)]
-        else:
-            raise ValueError('Input {from_input} not in node inputs')
+    if 'bypass_inout_map' in kwargs:
+        for from_input, to_output in kwargs['bypass_inout_map'].items():
+            if from_input in kwargs:
+                outputs[to_output] = kwargs[from_input]
+            elif from_input.isdigit() and (0 < int(from_input) < len(args)):
+                outputs[to_output] = args[int(from_input)]
+            else:
+                raise ValueError('Input {from_input} not in node inputs')
     
     return outputs
 
@@ -80,9 +80,10 @@ class GraphRunner():
             # Obtain the module to run
             if 'bypass' in config and config['bypass']:
                 self.logger(4, f'bypassed node {name}')
+
                 module = FunctionModule(
                     function=bypass_node,
-                    parameters={'bypass_inout_map': config['bypass_inout_map']}
+                    parameters=config
                 )
 
             elif 'class' in config:
@@ -116,14 +117,38 @@ class GraphRunner():
 
             node = self.graph_.node(node_name)
 
+            if 'dependencies' in node:
+                for dep_node in node['dependencies']:
+                    self.logger(6, f'add dependency {dep_node} to node {node_name}', 1)
+                    self.graph_.add_edge(dep_node, node_name)
+
             if 'input_map' not in node or len(node['input_map']) == 0:
                 self.logger(4, f'node {node_name} has no input')
                 continue
 
             self.logger(4, f'create graph dependency connections for node {node_name}')
             for input_node in node['input_map'].keys():
-                self.logger(6, f'add dependency {input_node} to node {node_name}', 1)
+                self.logger(6, f'add input/output dependency {input_node} to node {node_name}', 1)
                 self.graph_.add_edge(input_node, node_name)
+        
+        self._load_nodes_state()
+        self._load_nodes_output()
+
+    def _load_nodes_state(self):
+
+        self.logger(2, 'Load node run state')
+        for node_name in self.graph_.nodes():
+            node = self.graph_.node(node_name)
+            run_state_file = os.path.join(
+                self.save_dir, 
+                node['name'],
+                f'run_state.json'
+            )
+            if os.path.exists(run_state_file):
+                node['run_state'] = json.load(open(run_state_file, 'r'))
+                node['run_state']['last_run'] = datetime.fromisoformat(node['run_state']['last_run'])
+            else:
+                node['run_state'] = {'last_run': None}
 
     def _load_nodes_output(self):
 
@@ -132,12 +157,16 @@ class GraphRunner():
         for node_name in self.graph_.nodes():
             node = self.graph_.node(node_name)
             output_dir = os.path.join(self.save_dir, node['name'], 'output')
-            if not node['cache_output']:
+            if 'cache_output' in node and not node['cache_output']: # The absence of the cache_output parameter means by default cache output
                 self.logger(4, f'Node {node_name} cache output set to False', 1)
             elif os.path.isdir(output_dir):    
                 self.logger(4, f'Load node {node_name} cached outputs', 1)
                 node['output'] = {}
                 for file in glob.glob(os.path.join(output_dir, '*.json')):
+
+                    if file.split('/')[-1] == 'run_state.json':
+                        continue
+
                     output_name = file.split('/')[-1].replace('.json', '')
                     self.logger(6, f'Load {node_name}.{output_name}.json output', 2)
                     node['output'][output_name] = json.load(open(file, 'r'))
@@ -206,10 +235,12 @@ class GraphRunner():
                 output_file = os.path.join(output_dir, f'{output_name}.pickle')
                 self.logger(4, f'Saving output {output_name} to {output_file}')
                 pickle.dump(output_val, open(output_file, 'wb'))
+            
+        # Save the node run state as already run
+        run_state_file = os.path.join(output_dir, f'run_state.json')
+        json.dump(run_state_file, {'last_run': datetime.now().isoformat()})
 
     def run(self):
-
-        self._load_nodes_output()
 
         self.logger(2, 'Run execution graph')
         for node_name in self.graph_.topological_sort():
@@ -221,6 +252,9 @@ class GraphRunner():
             if node['output'] is not None:
                 self.logger(2, f'Skipping already executed node: {node_name}')
                 continue
+
+            if 'force_not_rerun' in node and node['force_not_rerun'] and node['run_state']['last_run'] is not None:
+                self.logger(2, f'Skipping already executed note with force not rerun: {node_name}')
 
             args = []
             kwargs = {}
