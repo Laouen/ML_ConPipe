@@ -4,12 +4,14 @@ import os
 from pathlib import Path
 
 from ConPipe.Logger import Logger
-from ConPipe.module_loaders import get_function
+from ConPipe.ModuleLoader import get_function
 
 
 class ResultEvaluation():
 
     def __init__(self, scores, charts, output_path, tag, classes=None, class_labels=None):
+
+        # TODO: Check if all the mandatory parameters are set and correct or raise Value error
 
         self.output_path = output_path
         self.tag = tag
@@ -35,7 +37,7 @@ class ResultEvaluation():
             elif score_module['score_type'] == 'proba':
                 self.score_proba_functions[score_name] = func
 
-            parameters = {} if 'parameters' not in score_module else score_module['parameters']
+            parameters = score_module.get('parameters', {})
             self.score_parameters[score_name] = parameters
 
         # Get all chart functions ready to run

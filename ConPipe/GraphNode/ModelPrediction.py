@@ -1,7 +1,7 @@
 import numpy as np
 
 from ConPipe.Logger import Logger
-from ConPipe.module_loaders import get_class
+from ConPipe.ModuleLoader import get_class
 
 from sklearn.base import clone
 

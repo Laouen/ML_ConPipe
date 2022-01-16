@@ -1,4 +1,6 @@
 import sys
+import os
+from pathlib import Path
 import importlib
 import inspect
 
@@ -36,7 +38,16 @@ def get_class(class_name):
     
     return class_obj
 
-def add_path_to_modules(module_paths, logger):
-    for module_path in module_paths:
+def add_path_to_modules(configs_path, modules_root, module_paths, logger):
+    
+    if not os.path.isabs(modules_root):
+        modules_root = os.path.join(configs_path, modules_root)
+
+    for module_path in module_paths:        
+        # If path is not absolute, then use it relative to the modules root path.
+        if not os.path.isabs(module_path):
+            module_path = os.path.join(modules_root, module_path)
+
         logger(5, f'\tadd path {module_path} to path')
+
         sys.path.append(module_path)

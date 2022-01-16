@@ -1,7 +1,7 @@
 
 import inspect
 
-from ConPipe.module_loaders import get_function
+from ConPipe.ModuleLoader import get_function
 
 
 '''

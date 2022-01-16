@@ -1,0 +1,50 @@
+from ConPipe.GraphRunner import GraphRunner
+import argparse
+import numpy as np
+from collections import defaultdict
+import json
+
+
+def main(config_path, custom_configs):
+    graph = GraphRunner(config_path, custom_configs)
+    graph.run()
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(description='Run a Machine Learning experiment from a YAML graph representation of the function flows')
+
+    parser.add_argument(
+        'config_paths',
+        type=str,
+        nargs='+',
+        help='The paths to the yaml config files to run. Config are merged using HiYaPyCo package with method=METHOD_MERGE.'
+    )
+
+    parser.add_argument('custom_configs', nargs=argparse.REMAINDER)
+
+    args = parser.parse_args()
+
+    n_extra_params = len(args.custom_configs)
+    if n_extra_params % 2 != 0:
+        raise ValueError('The number of extra parameters must be even because they are pairs of --<param_name> <param_value>')
+
+    paired_params = np.array(args.custom_configs).reshape(n_extra_params // 2, 2)
+    custom_configs = defaultdict(lambda: dict())
+    for (parameter, value) in paired_params:
+        flat_key = parameter.strip('-').split('.')
+
+        module = custom_configs
+        for key in flat_key[:-1]:
+
+            if key not in module:
+                module[key] = {}
+
+            module = module[key]
+
+        key = flat_key[-1]
+        if 'input_map' in flat_key and key.isdigit():
+            key = int(key)
+
+        module[key] = value
+
+    main(args.config_paths, custom_configs)

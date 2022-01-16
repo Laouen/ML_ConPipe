@@ -2,7 +2,7 @@ import pandas as pd
 
 from ConPipe.exceptions import NotExistentMethodError
 from ConPipe.Logger import Logger
-from ConPipe.module_loaders import get_class, get_function
+from ConPipe.ModuleLoader import get_class, get_function
 from sklearn.metrics import make_scorer
 
 class ModelSelection():
@@ -11,28 +11,39 @@ class ModelSelection():
 
         self.logger = Logger()
 
+        models = {
+            model_name: model_params
+            for model_name, model_params in models.items()
+            if model_params != False
+        }
+
         self.fit_params = {
-            model_name: model_params['fit_params'] if 'fit_params' in model_params else {}
+            model_name: model_params.get('fit_params', {})
             for model_name, model_params in models.items()
         }
+
+        # TODO: check that all models have a param_grid or raise value error
 
         self.param_grids = {
             model_name: model_params['param_grid']
             for model_name, model_params in models.items()
         }
         
+        # Note: Agregarlo como feature futura en GitHub
         # TODO: Implementar modelos encadenados con sklearn Pipe de forma de permitir cosas como hacer
         # feature selecton dentro del hiper parameter optimization schema
+        
         self.models = {
-            model_name: get_class(model_params['class'])(**model_params['constructor_params'])
-            for model_name, model_params in models.items()
+            model_name: get_class(model_params['class'])(
+                **model_params.get('constructor_params', {})
+            ) for model_name, model_params in models.items()
         }
         
         scoring_function = get_function(scoring['function'])
         if 'parameters' in scoring:
             scoring_function = make_scorer(
                 scoring_function,
-                **scoring['parameters']
+                **scoring.get('parameters', {})
             )
 
         cv_class = get_class(cv['class'])
@@ -43,9 +54,9 @@ class ModelSelection():
                 estimator=model,
                 param_grid=self.param_grids[model_name],
                 scoring=scoring_function,
-                cv=cv_class(**cv['parameters']),
+                cv=cv_class(**cv.get('parameters', {})),
                 verbose=self.logger.verbose,
-                **parameter_optimizer['parameters']
+                **parameter_optimizer.get('parameters', {})
             ) for model_name, model in self.models.items()
         }
 
