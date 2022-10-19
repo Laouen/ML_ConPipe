@@ -317,7 +317,7 @@ class GraphRunner():
                 
                 if module_name not in default_modules.keys():
                     raise ValueError(
-                        f'base module {module_name} non existent, options are:'
+                        f'Base module {module_name} non existent, options are:'
                         f'\n\t' + '\n\t'.join(default_modules.keys())
                     )
                 

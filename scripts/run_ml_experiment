@@ -26,7 +26,7 @@ if __name__ == '__main__':
 
     n_extra_params = len(args.custom_configs)
     if n_extra_params % 2 != 0:
-        raise ValueError('The number of extra parameters must be even because they are pairs of --<param_name> <param_value>')
+        raise ValueError('Incorrect extra parameter format, they must be pairs of --<param_name> <param_value>')
 
     paired_params = np.array(args.custom_configs).reshape(n_extra_params // 2, 2)
     custom_configs = defaultdict(lambda: dict())
